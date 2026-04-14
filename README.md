@@ -32,10 +32,12 @@ Download from [GitHub Releases](https://github.com/vagusX/jq5/releases/latest):
 Quick install (Linux / macOS):
 
 ```bash
-# Detect architecture and download
-ARCH=$(uname -m)  # x86_64 or aarch64
-OS=$(uname -s | tr '[:upper:]' '[:lower:]')  # linux or darwin
-curl -LO "https://github.com/vagusX/jq5/releases/latest/download/jq5-${OS}-${ARCH}.tar.gz"
+# Detect OS and architecture
+OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+ARCH=$(uname -m)
+[ "$ARCH" = "arm64" ] && ARCH="aarch64"
+
+curl -fLO "https://github.com/vagusX/jq5/releases/latest/download/jq5-${OS}-${ARCH}.tar.gz"
 tar xzf jq5-${OS}-${ARCH}.tar.gz
 sudo mv jq5 /usr/local/bin/
 ```
