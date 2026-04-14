@@ -77,15 +77,38 @@ jq5 [OPTIONS] <FILTER> [FILES]...
 ### From stdin
 
 ```bash
+echo '{"name": "test", "value": 1}' | jq5 '.'
+```
+
+Output (JSON, same as jq):
+
+```json
+{
+  "name": "test",
+  "value": 1
+}
+```
+
+### From files
+
+```bash
+jq5 '.' config.json data.json5
+```
+
+### JSON5 mode (preserve comments)
+
+Use `--json5` to output JSON5 format with comment preservation:
+
+```bash
 echo '{
   // Server config
   host: "localhost",
   // Port number
   port: 8080,
-}' | jq5 '.'
+}' | jq5 --json5 '.'
 ```
 
-Output (comments preserved):
+Output:
 
 ```json5
 {
@@ -97,45 +120,13 @@ Output (comments preserved):
 }
 ```
 
-### From files
-
-```bash
-jq5 '.' config.json5 server.json5
-```
-
-### Field extraction
-
-```bash
-echo '{ name: "Alice", age: 30 }' | jq5 '.name'
-# "Alice"
-```
-
-### Object restructuring
-
-```bash
-echo '{
-  // First name
-  first: "John",
-  // Last name
-  last: "Doe",
-}' | jq5 '{fullName: .first, family: .last}'
-```
-
-### Plain JSON output
-
-Use `--json` to skip json5format and output jq's native JSON (preserves original formatting):
-
-```bash
-jq5 --json '.' data.json
-```
-
 ### Pass arguments to jq
 
 Use `--` to pass extra arguments (like `--arg`, `--argjson`, `--slurp`) through to jq:
 
 ```bash
-jq5 --json '.name = $val' data.json -- --arg val "new_value"
-jq5 --json '.count = $n' data.json -- --argjson n 42
+jq5 '.name = $val' data.json -- --arg val "new_value"
+jq5 '.count = $n' data.json -- --argjson n 42
 ```
 
 ### Custom jq path
@@ -159,14 +150,14 @@ The filter syntax is identical — jq5 passes filters directly to jq. The differ
 
 ### Output format
 
-| | jq | jq5 (default) | jq5 --json |
+| | jq | jq5 (default) | jq5 --json5 |
 |---|---|---|---|
 | Input format | JSON only | JSON & JSON5 | JSON & JSON5 |
-| Output format | JSON | JSON5 | JSON (jq native) |
+| Output format | JSON | JSON (same as jq) | JSON5 |
 | Indentation | 2 spaces | 2 spaces | 2 spaces |
-| Key quoting | Always quoted | Unquoted when possible | Always quoted |
-| Trailing commas | No | Yes | No |
-| Comments | N/A | Preserved from input | Discarded |
+| Key quoting | Always quoted | Always quoted | Unquoted when possible |
+| Trailing commas | No | No | Yes |
+| Comments | N/A | Discarded | Preserved from input |
 
 ### jq flags support
 
@@ -177,7 +168,7 @@ jq flags are not direct CLI flags of jq5. Pass them after `--`:
 jq --arg name "Alice" '.name = $name' file.json
 
 # jq5 way
-jq5 --json '.name = $name' file.json -- --arg name "Alice"
+jq5 '.name = $name' file.json -- --arg name "Alice"
 ```
 
 | jq flag | jq5 support | Notes |
@@ -187,17 +178,17 @@ jq5 --json '.name = $name' file.json -- --arg name "Alice"
 | `--raw-output` / `-r` | Via `--` | `jq5 '.name' f -- -r` |
 | `--raw-input` / `-R` | Via `--` | `jq5 '.' f -- -R` |
 | `--null-input` / `-n` | Via `--` | `jq5 'null' -- -n` |
-| `--compact-output` / `-c` | Via `--` | `jq5 --json '.' f -- -c` |
-| `--tab` | Via `--` | `jq5 --json '.' f -- --tab` |
-| `--indent N` | Via `--` | `jq5 --json '.' f -- --indent 4` |
-| `--sort-keys` / `-S` | Via `--` | `jq5 --json '.' f -- -S` |
+| `--compact-output` / `-c` | Via `--` | `jq5 '.' f -- -c` |
+| `--tab` | Via `--` | `jq5 '.' f -- --tab` |
+| `--indent N` | Via `--` | `jq5 '.' f -- --indent 4` |
+| `--sort-keys` / `-S` | Via `--` | `jq5 '.' f -- -S` |
 | `--exit-status` / `-e` | Not supported | jq5 manages its own exit codes |
 | `--jsonargs` | Not supported | Use `--argjson` instead |
 
 **When to use which mode:**
 
-- **JSON5 files with comments** → default mode (preserves comments, outputs JSON5)
-- **JSON files** → `--json` mode (identical to jq output)
+- **Default** → JSON output, identical to jq (works with both JSON and JSON5 input)
+- **`--json5`** → JSON5 output with comment preservation (for editing JSON5 files in-place)
 
 ## Known limitations
 

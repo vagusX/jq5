@@ -79,10 +79,10 @@ async fn run_jq5(
     json_string: String,
     jq_path: &Option<PathBuf>,
     jq_args: &[String],
-    json_output: bool,
+    json5_output: bool,
 ) -> Result<String, anyhow::Error> {
     let jq_out = run_jq(filter, json_string, jq_path, jq_args).await?;
-    if json_output {
+    if !json5_output {
         return Ok(jq_out);
     }
     let mut parsed_json = ParsedDocument::from_string(jq_out.clone(), None);
@@ -109,10 +109,10 @@ async fn run_jq5_on_file(
     file: &PathBuf,
     jq_path: &Option<PathBuf>,
     jq_args: &[String],
-    json_output: bool,
+    json5_output: bool,
 ) -> Result<String, anyhow::Error> {
     let (parsed_json5, json_string) = reader::read_json5_fromfile(file)?;
-    run_jq5(filter, parsed_json5, json_string, jq_path, jq_args, json_output).await
+    run_jq5(filter, parsed_json5, json_string, jq_path, jq_args, json5_output).await
 }
 
 /// Processes multiple files concurrently via `join_all`.
@@ -121,11 +121,11 @@ async fn run(
     files: &[PathBuf],
     jq_path: &Option<PathBuf>,
     jq_args: &[String],
-    json_output: bool,
+    json5_output: bool,
 ) -> Result<Vec<String>, anyhow::Error> {
     let futures: Vec<_> = files
         .iter()
-        .map(|file| run_jq5_on_file(filter, file, jq_path, jq_args, json_output))
+        .map(|file| run_jq5_on_file(filter, file, jq_path, jq_args, json5_output))
         .collect();
     let results = join_all(futures).await;
     let mut outputs = Vec::with_capacity(results.len());
@@ -150,10 +150,10 @@ async fn main() -> Result<(), anyhow::Error> {
 
     if args.files.is_empty() {
         let (parsed_json5, json_string) = reader::read_json5_from_input(&mut io::stdin())?;
-        let out = run_jq5(&args.filter, parsed_json5, json_string, &args.jq_path, &args.jq_args, args.json).await?;
+        let out = run_jq5(&args.filter, parsed_json5, json_string, &args.jq_path, &args.jq_args, args.json5).await?;
         io::stdout().write_all(out.as_bytes())?;
     } else {
-        let outs = run(&args.filter, &args.files, &args.jq_path, &args.jq_args, args.json).await?;
+        let outs = run(&args.filter, &args.files, &args.jq_path, &args.jq_args, args.json5).await?;
         for out in outs {
             io::stdout().write_all(out.as_bytes())?;
         }
@@ -177,9 +177,9 @@ struct Opt {
     #[arg(long = "path-to-jq")]
     jq_path: Option<PathBuf>,
 
-    /// Output plain JSON instead of JSON5 (skip comment preservation and json5format)
+    /// Output JSON5 format with comment preservation (default: JSON output like jq)
     #[arg(long)]
-    json: bool,
+    json5: bool,
 
     /// Extra arguments to pass through to jq (e.g. --arg, --argjson, --slurp)
     #[arg(last = true)]
@@ -250,7 +250,7 @@ mod tests {
 }"##,
         );
         let (parsed_json5, json_string) = reader::read_json5(json5_string).unwrap();
-        let result = run_jq5(filter, parsed_json5, json_string, &None, &[], false).await.unwrap();
+        let result = run_jq5(filter, parsed_json5, json_string, &None, &[], true).await.unwrap();
         assert!(result.contains("foo"));
         assert!(result.contains("baz"));
     }
