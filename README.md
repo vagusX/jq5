@@ -39,7 +39,10 @@ ARCH=$(uname -m)
 
 curl -fLO "https://github.com/vagusX/jq5/releases/latest/download/jq5-${OS}-${ARCH}.tar.gz"
 tar xzf jq5-${OS}-${ARCH}.tar.gz
+
+# Install to system path (requires sudo), or ~/.local/bin (no sudo)
 sudo mv jq5 /usr/local/bin/
+# or: mv jq5 ~/.local/bin/
 ```
 
 Windows (PowerShell):
