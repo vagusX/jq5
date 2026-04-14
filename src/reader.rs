@@ -8,20 +8,17 @@ use serde_json::Value;
 use std::fs::File;
 use std::path::PathBuf;
 
-/// Processes `json5_string`, a string representing a JSON5 object, and returns
-/// a tuple of two elements where the first element is a `ParsedDocument`
-/// representation of the JSON5 object and the second element is a string
-/// representing the JSON5 object without comments (as plain JSON).
-pub(crate) fn read_json5(json5_string: String) -> Result<(ParsedDocument, String), anyhow::Error> {
+/// Processes `json5_string` and returns (ParsedDocument, JSON string, raw input).
+pub(crate) fn read_json5(json5_string: String) -> Result<(ParsedDocument, String, String), anyhow::Error> {
     let object_as_json_string = serde_json5::from_str::<Value>(&json5_string)?.to_string();
-    let deserialized_object = json5format::ParsedDocument::from_string(json5_string, None)?;
-    Ok((deserialized_object, object_as_json_string))
+    let deserialized_object = json5format::ParsedDocument::from_string(json5_string.clone(), None)?;
+    Ok((deserialized_object, object_as_json_string, json5_string))
 }
 
 /// Calls `read_json5` on the contents of the specified file.
 pub(crate) fn read_json5_fromfile(
     file: &PathBuf,
-) -> Result<(ParsedDocument, String), anyhow::Error> {
+) -> Result<(ParsedDocument, String, String), anyhow::Error> {
     let path = file.as_path();
     read_json5_from_input(&mut File::open(path)?)
 }
@@ -29,7 +26,7 @@ pub(crate) fn read_json5_fromfile(
 /// Calls `read_json5` on the data from an object with a `Read` implementation.
 pub(crate) fn read_json5_from_input(
     input: &mut (impl std::io::Read + Sized),
-) -> Result<(ParsedDocument, String), anyhow::Error> {
+) -> Result<(ParsedDocument, String, String), anyhow::Error> {
     let mut buffer = String::new();
     input.read_to_string(&mut buffer)?;
     read_json5(buffer)

@@ -185,10 +185,13 @@ jq5 '.name = $name' file.json -- --arg name "Alice"
 | `--exit-status` / `-e` | Not supported | jq5 manages its own exit codes |
 | `--jsonargs` | Not supported | Use `--argjson` instead |
 
-**When to use which mode:**
+**Auto-detection:** jq5 automatically detects if the input is JSON5 by checking:
 
-- **Default** → JSON output, identical to jq (works with both JSON and JSON5 input)
-- **`--json5`** → JSON5 output with comment preservation (for editing JSON5 files in-place)
+1. File extension: `.json5` / `.jsonc` → always JSON5 mode
+2. Content: if `//` or `/* */` comments are found → JSON5 mode
+3. Otherwise → JSON mode (identical to jq)
+
+Use `--json5` to force JSON5 output, even if no comments are detected.
 
 ## Known limitations
 

@@ -119,16 +119,68 @@ fn requote_keys(json5: &str) -> String {
     .to_string()
 }
 
+/// Detect if content looks like JSON5 (has comments).
+fn has_json5_features(content: &str) -> bool {
+    let mut chars = content.chars().peekable();
+    let mut in_string = false;
+    let mut escape = false;
+    let mut string_char = '"';
+
+    while let Some(c) = chars.next() {
+        if escape {
+            escape = false;
+            continue;
+        }
+        if in_string {
+            if c == '\\' {
+                escape = true;
+            } else if c == string_char {
+                in_string = false;
+            }
+            continue;
+        }
+        match c {
+            '"' | '\'' => {
+                in_string = true;
+                string_char = c;
+            }
+            '/' => {
+                if chars.peek() == Some(&'/') || chars.peek() == Some(&'*') {
+                    return true;
+                }
+            }
+            _ => {}
+        }
+    }
+    false
+}
+
+/// Detect if a file should use JSON5 mode based on extension.
+/// Returns Some(true) for .json5/.jsonc, None for everything else (fall through to content detection).
+fn is_json5_by_extension(file: &Path) -> Option<bool> {
+    file.extension().and_then(|ext| ext.to_str()).and_then(|ext| {
+        if matches!(ext, "json5" | "jsonc") {
+            Some(true)
+        } else {
+            None
+        }
+    })
+}
+
 /// Calls `run_jq5` on the contents of a file and returns the result.
 async fn run_jq5_on_file(
     filter: &str,
     file: &PathBuf,
     jq_path: &Option<PathBuf>,
     jq_args: &[String],
-    json5_output: bool,
+    force_json5: Option<bool>,
     quote_keys: bool,
 ) -> Result<String, anyhow::Error> {
-    let (parsed_json5, json_string) = reader::read_json5_fromfile(file)?;
+    let (parsed_json5, json_string, raw) = reader::read_json5_fromfile(file)?;
+    let json5_output = match force_json5 {
+        Some(v) => v,
+        None => is_json5_by_extension(file).unwrap_or_else(|| has_json5_features(&raw)),
+    };
     run_jq5(filter, parsed_json5, json_string, jq_path, jq_args, json5_output, quote_keys).await
 }
 
@@ -138,12 +190,12 @@ async fn run(
     files: &[PathBuf],
     jq_path: &Option<PathBuf>,
     jq_args: &[String],
-    json5_output: bool,
+    force_json5: Option<bool>,
     quote_keys: bool,
 ) -> Result<Vec<String>, anyhow::Error> {
     let futures: Vec<_> = files
         .iter()
-        .map(|file| run_jq5_on_file(filter, file, jq_path, jq_args, json5_output, quote_keys))
+        .map(|file| run_jq5_on_file(filter, file, jq_path, jq_args, force_json5, quote_keys))
         .collect();
     let results = join_all(futures).await;
     let mut outputs = Vec::with_capacity(results.len());
@@ -166,14 +218,17 @@ async fn run(
 async fn main() -> Result<(), anyhow::Error> {
     let args = Opt::parse();
 
+    // --json5 explicitly set → force json5; --json5 not set → None (auto-detect)
+    let force_json5 = if args.json5 { Some(true) } else { None };
+    let quote = !args.unquote_keys;
+
     if args.files.is_empty() {
-        let (parsed_json5, json_string) = reader::read_json5_from_input(&mut io::stdin())?;
-        let quote = !args.unquote_keys;
-        let out = run_jq5(&args.filter, parsed_json5, json_string, &args.jq_path, &args.jq_args, args.json5, quote).await?;
+        let (parsed_json5, json_string, raw) = reader::read_json5_from_input(&mut io::stdin())?;
+        let json5_output = force_json5.unwrap_or_else(|| has_json5_features(&raw));
+        let out = run_jq5(&args.filter, parsed_json5, json_string, &args.jq_path, &args.jq_args, json5_output, quote).await?;
         io::stdout().write_all(out.as_bytes())?;
     } else {
-        let quote = !args.unquote_keys;
-        let outs = run(&args.filter, &args.files, &args.jq_path, &args.jq_args, args.json5, quote).await?;
+        let outs = run(&args.filter, &args.files, &args.jq_path, &args.jq_args, force_json5, quote).await?;
         for out in outs {
             io::stdout().write_all(out.as_bytes())?;
         }
@@ -273,7 +328,7 @@ mod tests {
   bar: 42
 }"##,
         );
-        let (parsed_json5, json_string) = reader::read_json5(json5_string).unwrap();
+        let (parsed_json5, json_string, _) = reader::read_json5(json5_string).unwrap();
         let result = run_jq5(filter, parsed_json5, json_string, &None, &[], true, true).await.unwrap();
         assert!(result.contains("foo"));
         assert!(result.contains("baz"));
