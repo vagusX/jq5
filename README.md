@@ -158,7 +158,7 @@ The filter syntax is identical — jq5 passes filters directly to jq. The differ
 | Output format | JSON | JSON (same as jq) | JSON5 (double-quoted keys) |
 | Indentation | 2 spaces | 2 spaces | 2 spaces |
 | Key quoting | `"key":` | `"key":` | `"key":` (default) / `key:` (`--unquote-keys`) |
-| Trailing commas | No | No | Yes |
+| Trailing commas | No | No | No |
 | Comments | N/A | Discarded | Preserved from input |
 
 ### jq flags support

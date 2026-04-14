@@ -94,6 +94,7 @@ async fn run_jq5(
             let _ = traverser::fill_comments(&parsed_json5.content, &mut doc.content);
             let format = Json5Format::with_options(FormatOptions {
                 indent_by: 2,
+                trailing_commas: false,
                 ..Default::default()
             })?;
             let output = format.to_string(doc)?;
