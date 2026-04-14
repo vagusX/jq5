@@ -42,6 +42,14 @@ tar xzf jq5-${OS}-${ARCH}.tar.gz
 sudo mv jq5 /usr/local/bin/
 ```
 
+Windows (PowerShell):
+
+```powershell
+Invoke-WebRequest -Uri "https://github.com/vagusX/jq5/releases/latest/download/jq5-windows-x86_64.zip" -OutFile jq5.zip
+Expand-Archive jq5.zip -DestinationPath .
+Move-Item jq5.exe C:\Windows\System32\
+```
+
 ### Build from source
 
 Requires [Rust toolchain](https://rustup.rs/).
