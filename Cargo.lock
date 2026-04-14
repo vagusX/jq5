@@ -323,6 +323,7 @@ dependencies = [
  "json5format",
  "pest",
  "pest_derive",
+ "regex",
  "serde_json",
  "serde_json5",
  "tokio",

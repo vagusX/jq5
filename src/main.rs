@@ -6,6 +6,7 @@
 use clap::Parser;
 use futures::future::join_all;
 use json5format::{FormatOptions, Json5Format, ParsedDocument};
+use regex::Regex;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use tokio::io::AsyncWriteExt;
@@ -80,6 +81,7 @@ async fn run_jq5(
     jq_path: &Option<PathBuf>,
     jq_args: &[String],
     json5_output: bool,
+    quote_keys: bool,
 ) -> Result<String, anyhow::Error> {
     let jq_out = run_jq(filter, json_string, jq_path, jq_args).await?;
     if !json5_output {
@@ -94,13 +96,27 @@ async fn run_jq5(
                 indent_by: 2,
                 ..Default::default()
             })?;
-            Ok(format.to_string(doc)?)
+            let output = format.to_string(doc)?;
+            if quote_keys {
+                Ok(requote_keys(&output))
+            } else {
+                Ok(output)
+            }
         }
         Err(_) => {
             // jq output is not valid JSON5 (e.g., raw string/number) — return as-is
             Ok(jq_out)
         }
     }
+}
+
+/// Re-add double quotes to unquoted JSON5 property names.
+fn requote_keys(json5: &str) -> String {
+    let re = Regex::new(r"(?m)^(\s*)([a-zA-Z_$][a-zA-Z0-9_$]*)(\s*:)").unwrap();
+    re.replace_all(json5, |caps: &regex::Captures| {
+        format!(r#"{}"{}"{}"#, &caps[1], &caps[2], &caps[3])
+    })
+    .to_string()
 }
 
 /// Calls `run_jq5` on the contents of a file and returns the result.
@@ -110,9 +126,10 @@ async fn run_jq5_on_file(
     jq_path: &Option<PathBuf>,
     jq_args: &[String],
     json5_output: bool,
+    quote_keys: bool,
 ) -> Result<String, anyhow::Error> {
     let (parsed_json5, json_string) = reader::read_json5_fromfile(file)?;
-    run_jq5(filter, parsed_json5, json_string, jq_path, jq_args, json5_output).await
+    run_jq5(filter, parsed_json5, json_string, jq_path, jq_args, json5_output, quote_keys).await
 }
 
 /// Processes multiple files concurrently via `join_all`.
@@ -122,10 +139,11 @@ async fn run(
     jq_path: &Option<PathBuf>,
     jq_args: &[String],
     json5_output: bool,
+    quote_keys: bool,
 ) -> Result<Vec<String>, anyhow::Error> {
     let futures: Vec<_> = files
         .iter()
-        .map(|file| run_jq5_on_file(filter, file, jq_path, jq_args, json5_output))
+        .map(|file| run_jq5_on_file(filter, file, jq_path, jq_args, json5_output, quote_keys))
         .collect();
     let results = join_all(futures).await;
     let mut outputs = Vec::with_capacity(results.len());
@@ -150,10 +168,12 @@ async fn main() -> Result<(), anyhow::Error> {
 
     if args.files.is_empty() {
         let (parsed_json5, json_string) = reader::read_json5_from_input(&mut io::stdin())?;
-        let out = run_jq5(&args.filter, parsed_json5, json_string, &args.jq_path, &args.jq_args, args.json5).await?;
+        let quote = !args.unquote_keys;
+        let out = run_jq5(&args.filter, parsed_json5, json_string, &args.jq_path, &args.jq_args, args.json5, quote).await?;
         io::stdout().write_all(out.as_bytes())?;
     } else {
-        let outs = run(&args.filter, &args.files, &args.jq_path, &args.jq_args, args.json5).await?;
+        let quote = !args.unquote_keys;
+        let outs = run(&args.filter, &args.files, &args.jq_path, &args.jq_args, args.json5, quote).await?;
         for out in outs {
             io::stdout().write_all(out.as_bytes())?;
         }
@@ -180,6 +200,10 @@ struct Opt {
     /// Output JSON5 format with comment preservation (default: JSON output like jq)
     #[arg(long)]
     json5: bool,
+
+    /// Use unquoted keys in --json5 mode (default: double-quoted keys)
+    #[arg(long)]
+    unquote_keys: bool,
 
     /// Extra arguments to pass through to jq (e.g. --arg, --argjson, --slurp)
     #[arg(last = true)]
@@ -250,7 +274,7 @@ mod tests {
 }"##,
         );
         let (parsed_json5, json_string) = reader::read_json5(json5_string).unwrap();
-        let result = run_jq5(filter, parsed_json5, json_string, &None, &[], true).await.unwrap();
+        let result = run_jq5(filter, parsed_json5, json_string, &None, &[], true, true).await.unwrap();
         assert!(result.contains("foo"));
         assert!(result.contains("baz"));
     }
