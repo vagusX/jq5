@@ -15,13 +15,40 @@ Based on [Google Fuchsia's jq5](https://fuchsia.googlesource.com/fuchsia/+/refs/
 
 ## Install
 
-**Requires**: [jq](https://jqlang.github.io/jq/download/) and [Rust toolchain](https://rustup.rs/).
+**Requires**: [jq](https://jqlang.github.io/jq/download/) installed on your system.
+
+### Pre-built binaries
+
+Download from [GitHub Releases](https://github.com/vagusX/jq5/releases/latest):
+
+| Platform | File |
+|----------|------|
+| Linux x86_64 | `jq5-linux-x86_64.tar.gz` |
+| Linux aarch64 | `jq5-linux-aarch64.tar.gz` |
+| macOS Intel | `jq5-darwin-x86_64.tar.gz` |
+| macOS Apple Silicon | `jq5-darwin-aarch64.tar.gz` |
+| Windows x86_64 | `jq5-windows-x86_64.zip` |
+
+Quick install (Linux / macOS):
+
+```bash
+# Detect architecture and download
+ARCH=$(uname -m)  # x86_64 or aarch64
+OS=$(uname -s | tr '[:upper:]' '[:lower:]')  # linux or darwin
+curl -LO "https://github.com/vagusX/jq5/releases/latest/download/jq5-${OS}-${ARCH}.tar.gz"
+tar xzf jq5-${OS}-${ARCH}.tar.gz
+sudo mv jq5 /usr/local/bin/
+```
+
+### Build from source
+
+Requires [Rust toolchain](https://rustup.rs/).
 
 ```bash
 cargo install --path .
 ```
 
-Or build manually:
+Or:
 
 ```bash
 cargo build --release
@@ -91,7 +118,7 @@ jq5 --path-to-jq /usr/local/bin/jq '.items[]' data.json5
 
 | Aspect | Fuchsia | Standalone |
 |--------|---------|------------|
-| Async runtime | `fuchsia_async` | Synchronous (no async needed) |
+| Async runtime | `fuchsia_async` | `tokio` + `futures::join_all` |
 | Default jq | `fx jq` | System `jq` in PATH |
 | Build system | `BUILD.gn` | `Cargo.toml` |
 | Type mismatch | Error | Graceful fallback to raw jq output |
