@@ -14,13 +14,14 @@ use tokio::process::Command;
 mod reader;
 mod traverser;
 
-/// Spawns a `jq` process with the specified filter and pipes `json_string` into its stdin.
+/// Spawns a `jq` process with the specified filter and extra args, pipes `json_string` into its stdin.
 async fn run_jq(
     filter: &str,
     json_string: String,
     jq_path: &Option<PathBuf>,
+    jq_args: &[String],
 ) -> Result<String, anyhow::Error> {
-    let mut child = match jq_path {
+    let jq_bin = match jq_path {
         Some(path) => {
             let command_str = path.as_path().to_str().unwrap();
             if !Path::exists(Path::new(command_str)) {
@@ -28,29 +29,27 @@ async fn run_jq(
                     "Path provided in --path-to-jq did not specify a valid path to a binary."
                 ));
             }
-            Command::new(command_str)
-                .arg(filter)
-                .stdin(std::process::Stdio::piped())
-                .stdout(std::process::Stdio::piped())
-                .stderr(std::process::Stdio::piped())
-                .spawn()?
+            command_str.to_string()
         }
-        None => Command::new("jq")
-            .arg(filter)
-            .stdin(std::process::Stdio::piped())
-            .stdout(std::process::Stdio::piped())
-            .stderr(std::process::Stdio::piped())
-            .spawn()
-            .map_err(|e| {
-                if e.kind() == io::ErrorKind::NotFound {
-                    anyhow::anyhow!(
-                        "jq not found in PATH. Install jq or use --path-to-jq to specify its location."
-                    )
-                } else {
-                    anyhow::anyhow!(e)
-                }
-            })?,
+        None => "jq".to_string(),
     };
+
+    let mut child = Command::new(&jq_bin)
+        .args(jq_args)
+        .arg(filter)
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .map_err(|e| {
+            if e.kind() == io::ErrorKind::NotFound {
+                anyhow::anyhow!(
+                    "jq not found in PATH. Install jq or use --path-to-jq to specify its location."
+                )
+            } else {
+                anyhow::anyhow!(e)
+            }
+        })?;
 
     let mut stdin = child.stdin.take().unwrap();
     stdin.write_all(json_string.as_bytes()).await?;
@@ -79,8 +78,13 @@ async fn run_jq5(
     parsed_json5: ParsedDocument,
     json_string: String,
     jq_path: &Option<PathBuf>,
+    jq_args: &[String],
+    json_output: bool,
 ) -> Result<String, anyhow::Error> {
-    let jq_out = run_jq(filter, json_string, jq_path).await?;
+    let jq_out = run_jq(filter, json_string, jq_path, jq_args).await?;
+    if json_output {
+        return Ok(jq_out);
+    }
     let mut parsed_json = ParsedDocument::from_string(jq_out.clone(), None);
     match parsed_json {
         Ok(ref mut doc) => {
@@ -101,9 +105,11 @@ async fn run_jq5_on_file(
     filter: &str,
     file: &PathBuf,
     jq_path: &Option<PathBuf>,
+    jq_args: &[String],
+    json_output: bool,
 ) -> Result<String, anyhow::Error> {
     let (parsed_json5, json_string) = reader::read_json5_fromfile(file)?;
-    run_jq5(filter, parsed_json5, json_string, jq_path).await
+    run_jq5(filter, parsed_json5, json_string, jq_path, jq_args, json_output).await
 }
 
 /// Processes multiple files concurrently via `join_all`.
@@ -111,10 +117,12 @@ async fn run(
     filter: &str,
     files: &[PathBuf],
     jq_path: &Option<PathBuf>,
+    jq_args: &[String],
+    json_output: bool,
 ) -> Result<Vec<String>, anyhow::Error> {
     let futures: Vec<_> = files
         .iter()
-        .map(|file| run_jq5_on_file(filter, file, jq_path))
+        .map(|file| run_jq5_on_file(filter, file, jq_path, jq_args, json_output))
         .collect();
     let results = join_all(futures).await;
     let mut outputs = Vec::with_capacity(results.len());
@@ -139,10 +147,10 @@ async fn main() -> Result<(), anyhow::Error> {
 
     if args.files.is_empty() {
         let (parsed_json5, json_string) = reader::read_json5_from_input(&mut io::stdin())?;
-        let out = run_jq5(&args.filter, parsed_json5, json_string, &args.jq_path).await?;
+        let out = run_jq5(&args.filter, parsed_json5, json_string, &args.jq_path, &args.jq_args, args.json).await?;
         io::stdout().write_all(out.as_bytes())?;
     } else {
-        let outs = run(&args.filter, &args.files, &args.jq_path).await?;
+        let outs = run(&args.filter, &args.files, &args.jq_path, &args.jq_args, args.json).await?;
         for out in outs {
             io::stdout().write_all(out.as_bytes())?;
         }
@@ -165,6 +173,14 @@ struct Opt {
     /// Path to the jq binary (defaults to 'jq' in PATH)
     #[arg(long = "path-to-jq")]
     jq_path: Option<PathBuf>,
+
+    /// Output plain JSON instead of JSON5 (skip comment preservation and json5format)
+    #[arg(long)]
+    json: bool,
+
+    /// Extra arguments to pass through to jq (e.g. --arg, --argjson, --slurp)
+    #[arg(last = true)]
+    jq_args: Vec<String>,
 }
 
 #[cfg(test)]
@@ -186,7 +202,7 @@ mod tests {
         }
         let filter = ".";
         let input = String::from("{}");
-        assert_eq!(run_jq(filter, input, &None).await.unwrap(), "{}\n");
+        assert_eq!(run_jq(filter, input, &None, &[]).await.unwrap(), "{}\n");
     }
 
     #[tokio::test]
@@ -197,7 +213,7 @@ mod tests {
         }
         let filter = ".";
         let input = String::from(r#"{"foo": 1, "bar": 2}"#);
-        let result = run_jq(filter, input, &None).await.unwrap();
+        let result = run_jq(filter, input, &None, &[]).await.unwrap();
         assert!(result.contains("\"foo\": 1"));
         assert!(result.contains("\"bar\": 2"));
     }
@@ -210,7 +226,7 @@ mod tests {
         }
         let filter = "{foo2: .foo1, bar2: .bar1}";
         let input = String::from(r#"{"foo1": 0, "bar1": 42}"#);
-        let result = run_jq(filter, input, &None).await.unwrap();
+        let result = run_jq(filter, input, &None, &[]).await.unwrap();
         assert!(result.contains("\"foo2\": 0"));
         assert!(result.contains("\"bar2\": 42"));
     }
@@ -231,7 +247,7 @@ mod tests {
 }"##,
         );
         let (parsed_json5, json_string) = reader::read_json5(json5_string).unwrap();
-        let result = run_jq5(filter, parsed_json5, json_string, &None).await.unwrap();
+        let result = run_jq5(filter, parsed_json5, json_string, &None, &[], false).await.unwrap();
         assert!(result.contains("foo"));
         assert!(result.contains("baz"));
     }
