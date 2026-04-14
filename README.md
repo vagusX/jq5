@@ -116,7 +116,7 @@ Output (comments preserved, keys stay double-quoted):
   "host": "localhost",
 
   // Port number
-  "port": 8080,
+  "port": 8080
 }
 ```
 
