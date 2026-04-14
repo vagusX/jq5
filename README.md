@@ -121,6 +121,23 @@ echo '{
 }' | jq5 '{fullName: .first, family: .last}'
 ```
 
+### Plain JSON output
+
+Use `--json` to skip json5format and output jq's native JSON (preserves original formatting):
+
+```bash
+jq5 --json '.' data.json
+```
+
+### Pass arguments to jq
+
+Use `--` to pass extra arguments (like `--arg`, `--argjson`, `--slurp`) through to jq:
+
+```bash
+jq5 --json '.name = $val' data.json -- --arg val "new_value"
+jq5 --json '.count = $n' data.json -- --argjson n 42
+```
+
 ### Custom jq path
 
 ```bash
@@ -139,8 +156,9 @@ jq5 --path-to-jq /usr/local/bin/jq '.items[]' data.json5
 ## Known limitations
 
 - Comments may attach to incorrect elements when array positions shift (e.g., after deletion)
-- Objects get alphabetically reordered during JSON conversion (doesn't affect data integrity)
 - Requires `jq` installed externally
+
+> **Note**: Linux binaries are statically linked with musl, no glibc dependency. They should work on any Linux distribution regardless of glibc version.
 
 ## License
 
