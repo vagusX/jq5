@@ -153,9 +153,30 @@ jq5 --path-to-jq /usr/local/bin/jq '.items[]' data.json5
 | Build system | `BUILD.gn` | `Cargo.toml` |
 | Type mismatch | Error | Graceful fallback to raw jq output |
 
+## Differences from jq
+
+The filter syntax is identical — jq5 passes filters directly to jq. The differences are in output format:
+
+| | jq | jq5 (default) | jq5 --json |
+|---|---|---|---|
+| Input format | JSON only | JSON & JSON5 | JSON & JSON5 |
+| Output format | JSON | JSON5 | JSON (jq native) |
+| Indentation | 2 spaces | 4 spaces | 2 spaces |
+| Key quoting | Always quoted | Unquoted when possible | Always quoted |
+| Trailing commas | No | Yes | No |
+| Comments | N/A | Preserved from input | Discarded |
+| `--tab`, `--indent` | Direct flags | Via `-- --tab` | Via `-- --tab` |
+| `--arg`, `--argjson` | Direct flags | Via `-- --arg` | Via `-- --arg` |
+
+**When to use which mode:**
+
+- **JSON5 files with comments** → default mode (preserves comments, outputs JSON5)
+- **JSON files** → `--json` mode (identical to jq output)
+
 ## Known limitations
 
 - Comments may attach to incorrect elements when array positions shift (e.g., after deletion)
+- Default mode uses json5format's 4-space indentation (not configurable); use `--json` with `-- --tab` or `-- --indent 4` to control indentation
 - Requires `jq` installed externally
 
 > **Note**: Linux binaries are statically linked with musl, no glibc dependency. They should work on any Linux distribution regardless of glibc version.
