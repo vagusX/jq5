@@ -155,7 +155,9 @@ jq5 --path-to-jq /usr/local/bin/jq '.items[]' data.json5
 
 ## Differences from jq
 
-The filter syntax is identical — jq5 passes filters directly to jq. The differences are in output format:
+The filter syntax is identical — jq5 passes filters directly to jq. The differences are in output format and flag handling:
+
+### Output format
 
 | | jq | jq5 (default) | jq5 --json |
 |---|---|---|---|
@@ -165,8 +167,32 @@ The filter syntax is identical — jq5 passes filters directly to jq. The differ
 | Key quoting | Always quoted | Unquoted when possible | Always quoted |
 | Trailing commas | No | Yes | No |
 | Comments | N/A | Preserved from input | Discarded |
-| `--tab`, `--indent` | Direct flags | Via `-- --tab` | Via `-- --tab` |
-| `--arg`, `--argjson` | Direct flags | Via `-- --arg` | Via `-- --arg` |
+
+### jq flags support
+
+jq flags are not direct CLI flags of jq5. Pass them after `--`:
+
+```bash
+# jq way
+jq --arg name "Alice" '.name = $name' file.json
+
+# jq5 way
+jq5 --json '.name = $name' file.json -- --arg name "Alice"
+```
+
+| jq flag | jq5 support | Notes |
+|---------|-------------|-------|
+| `--arg`, `--argjson` | Via `--` | `jq5 '.x = $v' f -- --arg v "val"` |
+| `--slurp` / `-s` | Via `--` | `jq5 '.' f1 f2 -- -s` |
+| `--raw-output` / `-r` | Via `--` | `jq5 '.name' f -- -r` |
+| `--raw-input` / `-R` | Via `--` | `jq5 '.' f -- -R` |
+| `--null-input` / `-n` | Via `--` | `jq5 'null' -- -n` |
+| `--compact-output` / `-c` | Via `--` | `jq5 --json '.' f -- -c` |
+| `--tab` | Via `--` | `jq5 --json '.' f -- --tab` |
+| `--indent N` | Via `--` | `jq5 --json '.' f -- --indent 4` |
+| `--sort-keys` / `-S` | Via `--` | `jq5 --json '.' f -- -S` |
+| `--exit-status` / `-e` | Not supported | jq5 manages its own exit codes |
+| `--jsonargs` | Not supported | Use `--argjson` instead |
 
 **When to use which mode:**
 
