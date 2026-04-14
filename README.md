@@ -95,30 +95,32 @@ Output (JSON, same as jq):
 jq5 '.' config.json data.json5
 ```
 
-### JSON5 mode (preserve comments)
+### JSON5 input (auto-detected)
 
-Use `--json5` to output JSON5 format with comment preservation:
+When the input contains comments, jq5 automatically preserves them:
 
 ```bash
 echo '{
   // Server config
-  host: "localhost",
+  "host": "localhost",
   // Port number
-  port: 8080,
-}' | jq5 --json5 '.'
+  "port": 8080,
+}' | jq5 '.'
 ```
 
-Output:
+Output (comments preserved, keys stay double-quoted):
 
 ```json5
 {
   // Server config
-  host: "localhost",
+  "host": "localhost",
 
   // Port number
-  port: 8080,
+  "port": 8080,
 }
 ```
+
+Use `--json5` to force JSON5 output even when no comments are detected. Use `--unquote-keys` with `--json5` for bare key style (`host:` instead of `"host":`).
 
 ### Pass arguments to jq
 
@@ -150,12 +152,12 @@ The filter syntax is identical — jq5 passes filters directly to jq. The differ
 
 ### Output format
 
-| | jq | jq5 (default) | jq5 --json5 |
+| | jq | jq5 (no comments) | jq5 (comments detected / --json5) |
 |---|---|---|---|
 | Input format | JSON only | JSON & JSON5 | JSON & JSON5 |
-| Output format | JSON | JSON (same as jq) | JSON5 |
+| Output format | JSON | JSON (same as jq) | JSON5 (double-quoted keys) |
 | Indentation | 2 spaces | 2 spaces | 2 spaces |
-| Key quoting | Always quoted | Always quoted | Unquoted when possible |
+| Key quoting | `"key":` | `"key":` | `"key":` (default) / `key:` (`--unquote-keys`) |
 | Trailing commas | No | No | Yes |
 | Comments | N/A | Discarded | Preserved from input |
 
@@ -196,7 +198,7 @@ Use `--json5` to force JSON5 output, even if no comments are detected.
 ## Known limitations
 
 - Comments may attach to incorrect elements when array positions shift (e.g., after deletion)
-- Tab indentation: use `--json` with `-- --tab` to match tab-indented files
+- Tab indentation: use `-- --tab` to match tab-indented files
 - Requires `jq` installed externally
 
 > **Note**: Linux binaries are statically linked with musl, no glibc dependency. They should work on any Linux distribution regardless of glibc version.
