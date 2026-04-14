@@ -239,6 +239,7 @@ async fn main() -> Result<(), anyhow::Error> {
 #[derive(Debug, Parser)]
 #[command(
     name = "jq5",
+    version,
     about = "An extension of jq to work on JSON5 objects, preserving comments.\n\nRequires jq to be installed and available in PATH (or specify --path-to-jq)."
 )]
 struct Opt {
