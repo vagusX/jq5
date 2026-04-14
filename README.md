@@ -89,11 +89,11 @@ Output (comments preserved):
 
 ```json5
 {
-    // Server config
-    host: "localhost",
+  // Server config
+  host: "localhost",
 
-    // Port number
-    port: 8080,
+  // Port number
+  port: 8080,
 }
 ```
 
@@ -161,7 +161,7 @@ The filter syntax is identical — jq5 passes filters directly to jq. The differ
 |---|---|---|---|
 | Input format | JSON only | JSON & JSON5 | JSON & JSON5 |
 | Output format | JSON | JSON5 | JSON (jq native) |
-| Indentation | 2 spaces | 4 spaces | 2 spaces |
+| Indentation | 2 spaces | 2 spaces | 2 spaces |
 | Key quoting | Always quoted | Unquoted when possible | Always quoted |
 | Trailing commas | No | Yes | No |
 | Comments | N/A | Preserved from input | Discarded |
@@ -176,7 +176,7 @@ The filter syntax is identical — jq5 passes filters directly to jq. The differ
 ## Known limitations
 
 - Comments may attach to incorrect elements when array positions shift (e.g., after deletion)
-- Default mode uses json5format's 4-space indentation (not configurable); use `--json` with `-- --tab` or `-- --indent 4` to control indentation
+- Tab indentation: use `--json` with `-- --tab` to match tab-indented files
 - Requires `jq` installed externally
 
 > **Note**: Linux binaries are statically linked with musl, no glibc dependency. They should work on any Linux distribution regardless of glibc version.

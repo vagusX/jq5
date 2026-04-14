@@ -5,7 +5,7 @@
 
 use clap::Parser;
 use futures::future::join_all;
-use json5format::{Json5Format, ParsedDocument};
+use json5format::{FormatOptions, Json5Format, ParsedDocument};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use tokio::io::AsyncWriteExt;
@@ -90,7 +90,10 @@ async fn run_jq5(
         Ok(ref mut doc) => {
             // Try to fill comments; ignore mismatch errors (e.g. object→primitive)
             let _ = traverser::fill_comments(&parsed_json5.content, &mut doc.content);
-            let format = Json5Format::new()?;
+            let format = Json5Format::with_options(FormatOptions {
+                indent_by: 2,
+                ..Default::default()
+            })?;
             Ok(format.to_string(doc)?)
         }
         Err(_) => {
