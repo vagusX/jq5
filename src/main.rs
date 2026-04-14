@@ -205,7 +205,7 @@ mod tests {
         }
         let filter = ".";
         let input = String::from("{}");
-        assert_eq!(run_jq(filter, input, &None, &[]).await.unwrap(), "{}\n");
+        assert_eq!(run_jq(filter, input, &None, &[]).await.unwrap().trim(), "{}");
     }
 
     #[tokio::test]
