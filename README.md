@@ -17,14 +17,28 @@ Based on [Google Fuchsia's jq5](https://fuchsia.googlesource.com/fuchsia/+/refs/
 
 **Requires**: [jq](https://jqlang.github.io/jq/download/) installed on your system.
 
+### Homebrew (macOS / Linux)
+
+```bash
+brew install vagusX/tap/jq5
+```
+
+### apt (Debian / Ubuntu)
+
+```bash
+# Download the .deb for your architecture (amd64 or arm64)
+curl -fLO "https://github.com/vagusX/jq5/releases/latest/download/jq5_$(curl -s https://api.github.com/repos/vagusX/jq5/releases/latest | grep tag_name | cut -d'"' -f4 | sed 's/^v//')_amd64.deb"
+sudo dpkg -i jq5_*.deb
+```
+
 ### Pre-built binaries
 
 Download from [GitHub Releases](https://github.com/vagusX/jq5/releases/latest):
 
 | Platform | File |
 |----------|------|
-| Linux x86_64 | `jq5-linux-x86_64.tar.gz` |
-| Linux aarch64 | `jq5-linux-aarch64.tar.gz` |
+| Linux x86_64 | `jq5-linux-x86_64.tar.gz` / `jq5_*_amd64.deb` |
+| Linux aarch64 | `jq5-linux-aarch64.tar.gz` / `jq5_*_arm64.deb` |
 | macOS Intel | `jq5-darwin-x86_64.tar.gz` |
 | macOS Apple Silicon | `jq5-darwin-aarch64.tar.gz` |
 | Windows x86_64 | `jq5-windows-x86_64.zip` |
@@ -32,15 +46,12 @@ Download from [GitHub Releases](https://github.com/vagusX/jq5/releases/latest):
 Quick install (Linux / macOS):
 
 ```bash
-# Detect OS and architecture
 OS=$(uname -s | tr '[:upper:]' '[:lower:]')
 ARCH=$(uname -m)
 [ "$ARCH" = "arm64" ] && ARCH="aarch64"
 
 curl -fLO "https://github.com/vagusX/jq5/releases/latest/download/jq5-${OS}-${ARCH}.tar.gz"
 tar xzf jq5-${OS}-${ARCH}.tar.gz
-
-# Install to system path (requires sudo), or ~/.local/bin (no sudo)
 sudo mv jq5 /usr/local/bin/
 # or: mv jq5 ~/.local/bin/
 ```
@@ -59,13 +70,6 @@ Requires [Rust toolchain](https://rustup.rs/).
 
 ```bash
 cargo install --path .
-```
-
-Or:
-
-```bash
-cargo build --release
-cp target/release/jq5 /usr/local/bin/
 ```
 
 ## Usage

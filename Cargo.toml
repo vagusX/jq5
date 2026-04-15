@@ -1,6 +1,6 @@
 [package]
 name = "jq5"
-version = "0.4.1"
+version = "0.4.2"
 edition = "2021"
 description = "An extension of jq to work on JSON5 files, preserving comments"
 license = "MIT"

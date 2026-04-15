@@ -70,6 +70,29 @@ jobs:
           cd ../../..
           shasum -a 256 ${{ matrix.name }}.tar.gz > ${{ matrix.name }}.tar.gz.sha256
 
+      - name: Package deb (Linux)
+        if: contains(matrix.target, 'linux')
+        run: |
+          ARCH=${{ matrix.target }}
+          if [[ "$ARCH" == *"x86_64"* ]]; then DEB_ARCH="amd64"; fi
+          if [[ "$ARCH" == *"aarch64"* ]]; then DEB_ARCH="arm64"; fi
+          VERSION=${GITHUB_REF_NAME#v}
+          PKG_DIR="jq5_${VERSION}_${DEB_ARCH}"
+          mkdir -p "${PKG_DIR}/DEBIAN" "${PKG_DIR}/usr/bin"
+          cp target/${{ matrix.target }}/release/jq5 "${PKG_DIR}/usr/bin/"
+          cat > "${PKG_DIR}/DEBIAN/control" << EOF
+          Package: jq5
+          Version: ${VERSION}
+          Architecture: ${DEB_ARCH}
+          Maintainer: vagusX <vagusxl@gmail.com>
+          Depends: jq
+          Description: An extension of jq to work on JSON5 files, preserving comments
+          Homepage: https://github.com/vagusX/jq5
+          EOF
+          sed -i 's/^          //' "${PKG_DIR}/DEBIAN/control"
+          dpkg-deb --build "${PKG_DIR}"
+          shasum -a 256 "${PKG_DIR}.deb" > "${PKG_DIR}.deb.sha256"
+
       - name: Package (Windows)
         if: runner.os == 'Windows'
         run: |
@@ -87,6 +110,8 @@ jobs:
             jq5-*.tar.gz.sha256
             jq5-*.zip
             jq5-*.zip.sha256
+            jq5_*.deb
+            jq5_*.deb.sha256
 
   release:
     needs: build
@@ -108,3 +133,5 @@ jobs:
             jq5-*.tar.gz.sha256
             jq5-*.zip
             jq5-*.zip.sha256
+            jq5_*.deb
+            jq5_*.deb.sha256
