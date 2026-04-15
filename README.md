@@ -26,8 +26,16 @@ brew install vagusX/tap/jq5
 ### apt (Debian / Ubuntu)
 
 ```bash
-# Download the .deb for your architecture (amd64 or arm64)
-curl -fLO "https://github.com/vagusX/jq5/releases/latest/download/jq5_$(curl -s https://api.github.com/repos/vagusX/jq5/releases/latest | grep tag_name | cut -d'"' -f4 | sed 's/^v//')_amd64.deb"
+# Add the repository
+echo "deb [trusted=yes] https://vagusx.github.io/jq5/ stable main" | sudo tee /etc/apt/sources.list.d/jq5.list
+sudo apt update
+sudo apt install jq5
+```
+
+Or install the .deb directly:
+
+```bash
+curl -fLO "https://github.com/vagusX/jq5/releases/latest/download/jq5_0.4.2_amd64.deb"
 sudo dpkg -i jq5_*.deb
 ```
 

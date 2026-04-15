@@ -1,0 +1,80 @@
+name: Update APT Repository
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  update-apt-repo:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install tools
+        run: sudo apt-get update && sudo apt-get install -y dpkg-dev
+
+      - name: Import GPG key
+        if: env.GPG_PRIVATE_KEY != ''
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+        run: echo "$GPG_PRIVATE_KEY" | gpg --batch --import
+
+      - name: Download all .deb from latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p apt-repo/pool/main
+          gh release download --repo ${{ github.repository }} --pattern "*.deb" --dir apt-repo/pool/main
+
+      - name: Generate APT metadata
+        run: |
+          cd apt-repo
+          mkdir -p dists/stable/main/binary-amd64
+          mkdir -p dists/stable/main/binary-arm64
+
+          dpkg-scanpackages --arch amd64 pool/ > dists/stable/main/binary-amd64/Packages
+          dpkg-scanpackages --arch arm64 pool/ > dists/stable/main/binary-arm64/Packages
+          gzip -k dists/stable/main/binary-amd64/Packages
+          gzip -k dists/stable/main/binary-arm64/Packages
+
+          cat > dists/stable/Release << EOF
+          Origin: vagusX
+          Label: jq5
+          Suite: stable
+          Codename: stable
+          Architectures: amd64 arm64
+          Components: main
+          Description: APT repository for jq5
+          EOF
+          sed -i 's/^          //' dists/stable/Release
+
+          # Add checksums
+          cd dists/stable
+          apt-ftparchive release . >> Release
+
+          # Sign if GPG key is available
+          if gpg --list-secret-keys 2>/dev/null | grep -q sec; then
+            gpg --batch --yes --armor --output Release.gpg --detach-sign Release
+            gpg --batch --yes --armor --output InRelease --clearsign Release
+          fi
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: apt-repo
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
